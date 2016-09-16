@@ -8,6 +8,9 @@ COPY additional_services.conf /etc/icinga2/conf.d/additional_services.conf
 COPY base2icinga2pagerduty.rb /usr/local/bin/base2icinga2pagerduty.rb
 COPY include_extra.conf /etc/icinga2/conf.d/include_extra.conf
 COPY hosts.conf /etc/icinga2/conf.d/hosts.conf
+COPY bin/* /usr/local/bin/
+
+RUN chmod a+x /usr/local/bin/*
 
 COPY extra /opt/icinga2/extra
 RUN chmod a+x /usr/local/bin/base2icinga2pagerduty.rb
