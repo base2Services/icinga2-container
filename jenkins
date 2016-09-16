@@ -1,0 +1,59 @@
+set -e
+
+export REPO_NAME=base2
+export SERVICE=icinga2
+
+export PAGER=xyz
+export DISPLAY_NAME=95redballoons
+
+############################
+############################
+###  BUILD       ###########
+############################
+############################
+
+mkdir icinga2/dockerbuild/extra
+cp chef/icinga2-checks/*.conf icinga2/dockerbuild/extra
+
+cd icinga2/dockerbuild
+
+sed -i "s/SED_THIS_PAGER/$PAGER/" base2-pagerduty-icinga2.conf
+sed -i "s/SED_THIS_DISPLAY_NAME/$DISPLAY_NAME/" base2-pagerduty-icinga2.conf
+
+
+#cp workspace/chef/icinga/stuff .
+
+docker build -t $REPO_NAME/$SERVICE:$BUILD_NUMBER .
+
+############################
+############################
+###  Push To ECR ###########
+############################
+############################
+
+
+export AZ=`curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone`
+export REGION="`echo \"$AZ\" | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
+export ACCOUNT=`curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | grep -oP '(?<="accountId" : ")[^"]*(?=")'`
+
+echo "AZ=${AZ}"
+echo "REGION=${REGION}"
+echo "ACCOUNT=${ACCOUNT}"
+
+export ECR="${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com"
+echo "ECR is ${ECR}"
+
+echo "login to ecr"
+eval `/usr/local/bin/aws ecr get-login --region ${REGION}`
+
+docker tag -f $REPO_NAME/$SERVICE:$BUILD_NUMBER $ECR/$REPO_NAME/$SERVICE:$BUILD_NUMBER
+docker tag -f $REPO_NAME/$SERVICE:$BUILD_NUMBER $ECR/$REPO_NAME/$SERVICE:latest
+
+aws --region ${REGION} ecr create-repository --repository-name $REPO_NAME/$SERVICE || echo "repo exists already"
+
+docker push $ECR/$REPO_NAME/$SERVICE:$BUILD_NUMBER
+docker push $ECR/$REPO_NAME/$SERVICE:latest
+
+docker rmi $REPO_NAME/$SERVICE:$BUILD_NUMBER
+docker rmi $ECR/$REPO_NAME/$SERVICE:$BUILD_NUMBER
+docker rmi $ECR/$REPO_NAME/$SERVICE:latest
